@@ -1,0 +1,156 @@
+
+<html>
+<style>
+
+    h2   {color: blue;}
+    h2   {font-family: Verdana}
+
+    .button {
+        background-color: #005050;
+        border: none;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+    }
+
+</style>
+    
+<h2>Hough Transform</h2>
+
+<canvas id="canvas" width="360" height="360"></canvas>
+<canvas id="canvasout" width="360" height="360"></canvas>
+
+
+<script>
+
+    var points = [];
+    var previousx = 0;
+    var previousy = 0;
+    var numpoints = 0;
+    var shades = ['#F5F5F5','#FAFAFA','#ECECEC','#DEDEDE','#D4D4D4','#FF0000'];
+
+    var canvas = document.getElementById('canvas');
+    var context = canvas.getContext('2d');
+    //Draw a border around the canvas
+    context.strokeStyle = 'green';
+    context.lineWidth = 2;
+    context.strokeRect(0, 0, canvas.width, canvas.height);
+
+    //Add an event listener that will draw a point where the mouse is clicked
+    canvas.addEventListener('mousedown', function(e) {
+        drawPointAndLine(canvas, e)
+    })
+
+    //Get the coordinates on the canvas where the mouse was clicked
+    function getCursorPosition(canvas, event) {
+
+        var coordinate = {
+            x : 0, y : 0
+        }
+
+        const bounding_box = canvas.getBoundingClientRect()
+        coordinate.x = Math.round(event.clientX - bounding_box.left)
+        coordinate.y = Math.round(event.clientY - bounding_box.top)
+
+        return coordinate;
+
+    }
+
+    //Draw a point at the selected coordinates on the canvas. 
+    //For every second point, draw a line from the previous point.
+    function drawPointAndLine(canvas, event){
+        numpoints++;
+        position = getCursorPosition(canvas, event);
+        console.log("Position clicked x: " + position.x + " y: " + position.y)
+        points.push(position);
+        context.beginPath();
+        context.fillStyle="red"
+        context.fillRect( position.x, position.y, 1, 1 );
+        context.stroke();
+        if(numpoints % 2 == 0){
+            context.strokeStyle = 'red';
+            context.lineWidth = 1;
+            context.beginPath(); 
+            context.moveTo(previousx,previousy);
+            context.lineTo(position.x,position.y);
+            context.stroke();
+        }
+        previousx = position.x;
+        previousy = position.y;
+
+    }
+
+    //Plot the Accumulator and colour the points based on value
+    function plotAccumulator(accumulator, maximum){
+
+        console.log("The Maximum Accumulator Value is "+ maximum);
+
+        //Draw a second canvas for output
+        var canvasout = document.getElementById('canvasout');
+        var contextout = canvasout.getContext('2d');
+        contextout.strokeStyle = 'white';
+        contextout.strokeStyle = 'blue';
+        contextout.lineWidth = 2;
+        contextout.strokeRect(0, 0, canvasout.width, canvasout.height);
+
+        for(var i = 0; i < accumulator.length; i++){
+            for(var j = 0; j < accumulator[0].length; j++){
+                if( accumulator[i][j] > 0 ){
+                    contextout.beginPath();
+                    contextout.fillStyle = shades[Math.round((shades.length/maximum)*accumulator[i][j])-1]
+                    var y = Math.round((j /accumulator[0].length )*360);
+                    contextout.fillRect( 2*i, y, 2, 1 );
+                    contextout.stroke();    
+                }
+            }
+        }
+    } 
+
+    //Run through each pixel on the canvas and for each each (x,y) update the accumulator (d, theta)
+    function hough(){
+
+        console.log("running hough");
+        var canvas = document.getElementById('canvas');
+        var context = canvas.getContext('2d');
+        var maximum = 0;
+
+        //Initialise the accumulator theta = (-90,+90) and d = (-max,+max)
+        var accumulator = new Array(180).fill(0); 
+        for (var i = 0; i < accumulator.length; i++) { 
+            accumulator[i] = new Array(Math.round(2*Math.sqrt(Math.pow(canvas.width,2)+Math.pow(canvas.height,2)))).fill(0); 
+        }
+
+        for (var x = 0; x < canvas.width; x++){
+            for (var y = 0; y < canvas.height; y++){
+                var pixelvalue = context.getImageData(x,y,1,1).data;
+                var r = pixelvalue[0];
+                var g = pixelvalue[1];
+                var b = pixelvalue[2];
+                //Points on the line are red pixels.
+                if( r >200 && g == 0 && b == 0 ){
+                    for(var theta = -90; theta < 90; theta++){  
+                        //All the trig functions take radians not degrees so need to convert by * pi/180
+                        var rho = Math.round( (x * Math.cos( theta * Math.PI / 180)) + ((canvas.height-y) * Math.sin(theta * Math.PI / 180)) );
+                        var adjustedrho = rho + Math.round((accumulator[0].length /2) );
+                        accumulator[theta+90][adjustedrho] = accumulator[theta+90][adjustedrho] + 1;
+                        if(accumulator[theta+90][adjustedrho] > maximum){
+                            maximum = accumulator[theta+90][adjustedrho];
+                        }
+                    }
+                } 
+            }
+
+        }
+        plotAccumulator(accumulator, maximum);
+    }
+</script>
+
+<p></p>
+<button class="button" onclick="hough()">Hough Transform</button>
+</hmtl>
